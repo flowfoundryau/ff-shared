@@ -7,7 +7,8 @@
 **Claude Cowork error message:**
 
 ```text
-Failed to authenticate. API Error: 403 Claude Fable 5 is not available. Please use Opus 4.8. Learn more: https://www.anthropic.com/news/fable-mythos-access
+Failed to authenticate. API Error: 403 Claude Fable 5 is not available. Please use Opus 4.8.
+Learn more: https://www.anthropic.com/news/fable-mythos-access
 ```
 
 ---
@@ -39,6 +40,7 @@ Two ground rules, so nothing surprises you:
 ## Phase 1 (once): back up, then build the handoffs
 
 **🧑 Step 1. Get 7-Zip** if you don't have it (Explorer's built-in zip fails on Cowork's paths, which run over 260 characters). 
+
 Install from <https://www.7-zip.org>, or run (in Powershell):
 
 ```powershell
