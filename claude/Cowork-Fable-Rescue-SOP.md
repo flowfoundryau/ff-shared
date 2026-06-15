@@ -1,37 +1,53 @@
-# SOP — Rescue handoffs from Fable-stuck Cowork sessions
+# SOP: Rescue handoffs from Fable-stuck Cowork sessions
 
-**Claude Cowork Error Message:** 
-**Failed to authenticate. API Error: 403 Claude Fable 5 is not available. Please use Opus 4.8. Learn more: https://www.anthropic.com/news/fable-mythos-access**
+*Created 2026-06-15 by Opus for David Jackson, Flow Foundry Consulting [linkedin.com/in/djackson](https://linkedin.com/in/djackson)*
 
-**What this is for.** Claude Cowork sessions that were created on **Claude Fable 5** are now dead — Fable is retired, so the session throws `403 Claude Fable 5 is not available` and won't run. The model is pinned **server-side**, so editing local files does **not** fix it (the app re-syncs the old value on launch). What you *can* do is **extract the work** — transcripts, decisions, output files, and the folder/file access each session used — into a clean "handoff" so you can resume in a fresh Opus 4.8 session.
 
-**Why the archive step.** A running Claude can't reliably read/modify its own live session store, and Windows Explorer's "Send to → Compressed folder" fails on the very long paths Cowork uses (>260 chars). 7-Zip handles long paths and gives you a clean, point-in-time snapshot. You then drop that archive somewhere normal (e.g. Documents) and let a working session read it.
+
+**Claude Cowork error message:**
+
+```text
+Failed to authenticate. API Error: 403 Claude Fable 5 is not available. Please use Opus 4.8. Learn more: https://www.anthropic.com/news/fable-mythos-access
+```
 
 ---
 
-## Step 1 — Close Cowork / the Claude app
+## What this is
 
-Fully quit it (check the system tray) so nothing is mid-write when you snapshot.
+Cowork sessions created on **Claude Fable 5** are dead: Fable is retired, so they throw `403 Claude Fable 5 is not available`. The model is pinned **server-side**, so editing local files doesn't fix it (the app re-syncs the old value on launch). This SOP doesn't revive those sessions. It **rescues the work** out of them, one handoff per dead session, so you can resume in a fresh Opus 4.8 session.
 
-## Step 2 — Find the session store
+It runs in **two phases**:
 
-It's one of these (depends on how Claude was installed — both channels exist on Windows 11):
+- **Phase 1 (once):** back up your Cowork sessions and turn every Fable session into a written handoff.
+- **Phase 2 (repeat, per session, whenever you like):** open one handoff and resume that project.
 
-- **MSIX build** (Microsoft Store, WinGet, or enterprise MSIX):
-  `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\local-agent-mode-sessions\`
-  The `pzs8sxrjxfjjc` is Anthropic's publisher-identity hash — it's the **same on every machine** for the official app, so this literal path is reliable. (Inside the MSIX sandbox the app *thinks* it writes to `%APPDATA%\Claude`; Windows redirects that here.)
-- **Direct `.exe` install** (Win32 installer from claude.ai/download):
-  `%APPDATA%\Claude\local-agent-mode-sessions\`
+The actors throughout: **🧑 you** and **🤖 Claude** (a fresh Opus 4.8 session).
 
-Quick way to tell which you have: if `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\` exists, it's MSIX; otherwise look under `%APPDATA%\Claude\`.
+---
 
-Inside, drill through the two GUID levels (`<account>\<org>\`) until you reach the folder that directly contains lots of **`local_<guid>`** folders and matching **`local_<guid>.json`** files. That's the session store. Each session = one `local_<guid>/` folder + one `local_<guid>.json` metadata file beside it.
+## Setup
 
-## Step 3 — Snapshot it with 7-Zip
+Open a new **Opus 4.8** Cowork session and give it this SOP (either paste this file's URL and ask Claude to read it, or download the `.md` and attach it to the session). Connect your **Documents** folder. Then do Phase 1.
 
-Install 7-Zip if needed, then run **PowerShell** (not Explorer). Pick the line matching your install:
+Two ground rules, so nothing surprises you:
 
-**Store/MSIX build:**
+- **Closing Claude Desktop is optional.** A backup taken with the app open is fine (a daily open-app backup is a normal habit). Close it only if you want to be extra safe.
+- **Only run code you can read.** The backup below is two short, single-line commands you can read in full. The SOP deliberately avoids long, opaque installer scripts. If any step ever looks too long, ask Claude to explain it line by line before you run it.
+
+---
+
+## Phase 1 (once): back up, then build the handoffs
+
+**🧑 Step 1. Get 7-Zip** if you don't have it (Explorer's built-in zip fails on Cowork's paths, which run over 260 characters). 
+Install from <https://www.7-zip.org>, or run (in Powershell):
+
+```powershell
+winget install --id 7zip.7zip -e
+```
+
+**🧑 Step 2. Back up your session store** to `Documents\cowork-rescue.zip` (credential files excluded). Run the block matching how Claude was installed:
+
+Microsoft Store / WinGet / enterprise (MSIX) build:
 
 ```powershell
 & "C:\Program Files\7-Zip\7z.exe" a -tzip "$env:USERPROFILE\Documents\cowork-rescue.zip" `
@@ -39,7 +55,7 @@ Install 7-Zip if needed, then run **PowerShell** (not Explorer). Pick the line m
   "-xr!.credentials.json"
 ```
 
-**Standard install:**
+Direct download (.exe) build:
 
 ```powershell
 & "C:\Program Files\7-Zip\7z.exe" a -tzip "$env:USERPROFILE\Documents\cowork-rescue.zip" `
@@ -47,34 +63,41 @@ Install 7-Zip if needed, then run **PowerShell** (not Explorer). Pick the line m
   "-xr!.credentials.json"
 ```
 
-Notes:
+Not sure which build you have? Run the first; if it archives nothing, run the second. (Prefer Claude to tailor the command to your machine? Ask it, it can generate and explain the exact line before you run it.)
 
-- `-xr!.credentials.json` excludes the OAuth token files. **Do this** — the store otherwise contains live credentials.
-- **Smaller archive** (metadata + transcripts only, skips big output/node_modules): add `-ir!local_*.json -ir!*.jsonl` and drop the `\*` so it reads: `"...\local-agent-mode-sessions" -ir!local_*.json -ir!*.jsonl -xr!.credentials.json`. That's all the handoff actually needs.
-- **Treat the archive as confidential** — it holds full chat content and file paths. Only feed it to your own Claude session; don't email it around.
+**🤖 Step 3. Have Claude inspect the archive and write the handoffs.** With `cowork-rescue.zip` sitting in your connected Documents folder, paste this:
 
-## Step 4 — Hand it to a fresh Opus session
+> I have a 7-Zip archive of my Claude Cowork session store at **Documents\cowork-rescue.zip**. Some sessions are dead because they were pinned to Claude Fable 5 (now retired). Work only from the archive, don't touch my live app files.
+>
+> 1. Without fully extracting, list every session: read each top-level `local_<guid>.json` and report its **title**, **model** (the `.model` field), and **guid**. Give me the model distribution and flag every session whose model contains **"fable"**.
+> 2. **Write one handoff file per Fable session** (not a combined summary), named `Handoff-<short-title-slug>.md`, saved to my connected folder. Build each from that session's own transcript: the `.jsonl` under `local_<guid>/.claude/projects/<encoded>/<uuid>.jsonl` (JSON-lines; `text` blocks in `user` turns are my messages, `assistant` turns hold replies plus `tool_use` actions). Each handoff must contain: **objective**; **what was done** (chronological, key decisions/rules); **current file versions**; **open/undecided items**; the **exact next task** the session died on; and a **"Files & folders needed to resume"** section.
+> 3. Build that "Files & folders needed" section from the metadata json (`cwd`, `userSelectedFolders`, `userApprovedFileAccessPaths`, `fsDetectedFiles`, and any file paths in `initialMessage`) as a concrete list of the **actual folders and files** to open. The real working files usually live in my own folders, not the zip, so this list is the important part.
+> 4. Show me links to all the handoff files.
 
-Start a **new Cowork session on Opus 4.8**, in the **same Cowork space** as the dead sessions if you can (so existing project memory auto-loads). Connect the folder that holds `cowork-rescue.zip` (e.g. Documents), then paste the prompt below.
+**Result:** a folder of per-session handoffs. The zip holds your full chat history and file paths, so keep it private and delete it when you're done.
 
 ---
 
-## Prompt to paste into the new Opus session
+## Phase 2 (repeat, per session): resume one project
 
-> I have a 7-Zip archive of my Claude Cowork session store at **Documents\cowork-rescue.zip**. Some sessions are dead because they were pinned to Claude Fable 5 (now retired). Do this, working only from the archive (don't touch my live app files):
->
-> 1. Without fully extracting, list every session: read each top-level `local_<guid>.json` and report its **title**, **model** (the `.model` field), and **guid**. Give me the model distribution and flag every session whose model contains **"fable"**.
-> 2. For each Fable session, build a **handoff** from its transcript. The transcript is the `.jsonl` under `local_<guid>/.claude/projects/<encoded>/<uuid>.jsonl` — it's JSON-lines with `{type, message:{role, content[]}}`; the `text` blocks in `user` turns are my messages, and `assistant` turns hold replies + `tool_use` actions. Summarise: objective, what was done (chronological, with key decisions/rules), current file versions, open/undecided items, and the **exact next task** the session died on.
-> 3. For each, list the **access it needs to resume** — pull `cwd`, `userSelectedFolders`, `userApprovedFileAccessPaths`, `fsDetectedFiles`, and any file paths in `initialMessage` from the metadata json, and turn them into a clean list of folders/files to grant a new session.
-> 4. Save each handoff as a markdown file in my connected folder and show me the links.
->
-> Note: the working files for these projects usually live in my own folders (per `userSelectedFolders` / the vault path), **not** inside the archive — so the access list matters more than the files in the zip.
+Do this whenever you want to pick a stranded project back up. Once per session, in its own sitting.
+
+**🧑 Step 1.** Open a new Opus 4.8 session, ideally in the **same Cowork space** as the original session so its project memory auto-loads. Connect the folder holding the handoffs.
+
+**🤖 Step 2.** Paste this, passing in, or naming the handoff you're resuming:
+
+> I'm resuming one rescued Cowork session. Read **Handoff-<name>.md**. Then **request access to the folders and files listed in its "Files & folders needed to resume" section** (actually issue the access request, don't just list them). Once I approve, pick up the work from the **"exact next task"** in the handoff.
+
+**🧑 Step 3.** Approve the access requests. Claude resumes the work.
+
+Repeat for each session you care about.
 
 ---
 
 ## Caveats / honesty notes
 
-- **You cannot un-stick the dead sessions** by any local edit — the model is server-pinned and re-synced on launch. This SOP rescues content; it doesn't revive the session. If Anthropic later offers an in-app migration off Fable, that's the only thing that would actually move the session.
-- The package hash `pzs8sxrjxfjjc` is **stable across machines** for the official app (it's the publisher identity, not a per-install value), so the literal path is dependable; the `Claude_*` wildcard is just a safety net for non-official repackages. What genuinely varies is **which channel** the company used — MSIX vs direct `.exe` — so check both base paths.
-- A session's real working files (spreadsheets, docs) typically live in the user's own folders, which are **not** in this archive. The handoff's access list tells you where they are; confirm those paths still exist before relying on them.
-- `Compress-Archive` (PowerShell's built-in) has historically failed on these long paths — that's why this SOP specifies 7-Zip.
+- **Claude can't run the backup itself, but it can hand you the command.** Its sandboxed Linux shell can't reach your Windows files or run commands on the host, so Phase 1 Step 2 is yours to run. Claude can still generate and explain the exact PowerShell first.
+- **You cannot un-stick the dead sessions** by any local edit: the model is server-pinned and re-synced on launch. This SOP rescues content; it doesn't revive the session. An Anthropic-side migration off Fable is the only thing that would actually move one.
+- **Install channel varies, the path mostly doesn't.** `pzs8sxrjxfjjc` is Anthropic's publisher identity, the same on every machine for the official app. What varies is MSIX (Store/WinGet/enterprise) vs the direct `.exe` download, which is why Step 2 has two variants.
+- **Real working files live outside the zip.** A session's spreadsheets and docs are in your own folders, not the archive. The handoff's access list points to them; confirm those paths still exist before relying on them.
+- **`Compress-Archive` (PowerShell's built-in) often fails on these long paths**, which is why Step 1 uses 7-Zip.
